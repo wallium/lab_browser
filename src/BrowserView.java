@@ -2,6 +2,7 @@ import java.awt.Dimension;
 import java.net.URL;
 import java.util.Optional;
 import java.util.ResourceBundle;
+
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
@@ -23,7 +24,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
+
 import javax.imageio.ImageIO;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -75,6 +78,7 @@ public class BrowserView {
         myModel = model;
         // use resources for labels
         myResources = ResourceBundle.getBundle(DEFAULT_RESOURCE_PACKAGE + language);
+        myFavorites = new ComboBox<String>();
         BorderPane root = new BorderPane();
         // must be first since other panels may refer to page
         root.setCenter(makePageDisplay());
@@ -82,21 +86,23 @@ public class BrowserView {
         root.setBottom(makeInformationPanel());
         // control the navigation
         enableButtons();
+        // Initialize ComboBox
         // create scene to hold UI
         myScene = new Scene(root, DEFAULT_SIZE.width, DEFAULT_SIZE.height);
-        //myScene.getStylesheets().add(DEFAULT_RESOURCE_PACKAGE + STYLESHEET);
+        myScene.getStylesheets().add(DEFAULT_RESOURCE_PACKAGE + STYLESHEET);
     }
 
     /**
      * Display given URL.
+     * @throws BrowserException 
      */
-    public void showPage (String url) {
+    public void showPage (String url) throws BrowserException {
         URL valid = myModel.go(url);
-        if (url != null) {
+        try {
             update(valid);
         }
-        else {
-            showError("Could not load " + url);
+        catch (BrowserException e) {
+        	System.out.println(String.format("Could not load %s", url));
         }
     }
 
@@ -125,22 +131,22 @@ public class BrowserView {
     }
 
     // move to the next URL in the history
-    private void next () {
+    private void next () throws BrowserException {
         update(myModel.next());
     }
 
     // move to the previous URL in the history
-    private void back () {
+    private void back () throws BrowserException {
         update(myModel.back());
     }
 
     // change current URL to the home page, if set
-    private void home () {
+    private void home () throws BrowserException {
         showPage(myModel.getHome().toString());
     }
 
     // change page to favorite choice
-    private void showFavorite (String favorite) {
+    private void showFavorite (String favorite) throws BrowserException {
         showPage(myModel.getFavorite(favorite).toString());
     }
 
@@ -180,7 +186,7 @@ public class BrowserView {
     }
 
     // organize user's options for controlling/giving input to model
-    private Node makeInputPanel () {
+    private Node makeInputPanel () throws BrowserException {
         VBox result = new VBox();
         result.getChildren().addAll(makeNavigationPanel(), makePreferencesPanel());
         return result;
@@ -194,14 +200,19 @@ public class BrowserView {
     }
 
     // make user-entered URL/text field and back/next buttons
-    private Node makeNavigationPanel () {
+    private Node makeNavigationPanel () throws BrowserException {
         HBox result = new HBox();
         // create buttons, with their associated actions
         // old style way to do set up callback (anonymous class)
         myBackButton = makeButton("BackCommand", new EventHandler<ActionEvent>() {
             @Override      
             public void handle (ActionEvent event) {       
-                back();        
+                try {
+					back();
+				} catch (BrowserException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}        
             }      
         });
         result.getChildren().add(myBackButton);
@@ -221,6 +232,10 @@ public class BrowserView {
     // make buttons for setting favorites/home URLs
     private Node makePreferencesPanel () {
         HBox result = new HBox();
+        result.getChildren().add(makeButton("AddFavoriteCommand", event -> {
+        	addFavorite();
+        }));
+        result.getChildren().add(myFavorites);
         result.getChildren().add(makeButton("SetHomeCommand", event -> {
             myModel.setHome();
             enableButtons();
@@ -259,7 +274,12 @@ public class BrowserView {
     private class ShowPage implements EventHandler<ActionEvent> {
         @Override      
         public void handle (ActionEvent event) {       
-            showPage(myURLDisplay.getText());      
+            try {
+				showPage(myURLDisplay.getText());
+			} catch (BrowserException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}      
         }      
     }
 
